@@ -1,0 +1,71 @@
+version: '2'
+
+services:
+  nginx:
+    image: jwilder/nginx-proxy:alpine
+    hostname: nginx
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs
+        # - ./nginx/config/www.mycook.es.conf:/etc/nginx/conf.d/www.mycook.es.conf:ro
+        # - ./nginx/vhost.d:/etc/nginx/vhost.d:ro
+    networks:
+      mycook:
+    ports:
+      - 80:80/tcp
+      - 443:443/tcp
+    logging:
+      options:
+        max-size: 50m
+  sveltekit:
+    image: myapp
+    hostname: sveltekit
+    networks:
+      mycook:
+    ports:
+      - 3000:3000/tcp
+    environment:
+     - VIRTUAL_HOST=mycook.com
+  mongointernational:
+    image: mongo:3.4.21-xenial
+    hostname: mongointernational
+    volumes:
+      - ./data/db/:/data/db
+    environment:
+      - MONGO_CMD=mongod
+    networks:
+      mycook:
+    logging:
+      options:
+        max-size: 50m
+  es-mycooktouch:
+    image: staging.do:5000/mycook-international:save
+    hostname: es-mycooktouch
+    volumes:
+      - ./config-console/:/app/config/env:ro
+      - ./web/es-mycooktouch/dist-regions/:/app/public/dist-regions/ES-MYCOOKTOUCH/
+      - ./web/es-mycooktouch/dist/:/app/public/dist/
+      - ./config-common:/app/config-common:ro
+      - ./config-common/events-MYCOOKTOUCH.js:/app/node_modules/mycook-common/events-MYCOOKTOUCH.js:ro
+      - ./data/images/es-mycooktouch:/app/public/image/
+      - ./data/mails/:/app/mails
+      - ./seo/es-mycooktouch:/app/snapshots
+    networks:
+      mycook:
+    links:
+      - mongointernational
+    environment:
+      - VIRTUAL_HOST=mycook.es       
+      - RI_ENV=ES-MYCOOKTOUCH
+      - PUPPETEER=http://puppeteer:3000
+      - WEB_ENV=production
+    logging:
+      options:
+        max-size: 50m
+networks:
+  mycook:
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.22.0.0/24
+
